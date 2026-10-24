@@ -174,12 +174,40 @@ export default function App() {
     []
   );
 
-  // Initial load & periodic cross-device sync
+  // Auto-initialize session if no token is stored so app works immediately
   useEffect(() => {
-    if (!authToken) {
-      setLoading(false);
-      return;
-    }
+    if (authToken) return;
+    let isCancelled = false;
+    const initDefaultSeat = async () => {
+      setLoading(true);
+      try {
+        const preferredRole =
+          (sessionStorage.getItem(SESSION_ROLE_KEY) as 'mentor' | 'student') || 'mentor';
+        const res = await fetch('/api/auth/seat-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: preferredRole, trialDirect: true }),
+        });
+        const data = await res.json();
+        if (!isCancelled && res.ok && data.token && data.profile) {
+          handleAuthenticated(data.token, data.profile, preferredRole);
+          await fetchSprintState(data.token, preferredRole, false);
+        }
+      } catch (err) {
+        console.error('Auto seat-init error:', err);
+      } finally {
+        if (!isCancelled) setLoading(false);
+      }
+    };
+    initDefaultSeat();
+    return () => {
+      isCancelled = true;
+    };
+  }, [authToken, fetchSprintState]);
+
+  // Periodic cross-device sync when active
+  useEffect(() => {
+    if (!authToken) return;
     fetchSprintState(authToken, seatRole, false);
 
     const interval = setInterval(() => {
@@ -222,15 +250,32 @@ export default function App() {
     }
   };
 
-  const handleLogout = async () => {
-    if (
-      reflectionDirty &&
-      !window.confirm(
-        'You have unsaved reflection text. Are you sure you want to log out?'
-      )
-    ) {
-      return;
+  const switchSeatRole = async (targetRole: 'mentor' | 'student') => {
+    setLoading(true);
+    setToastMessage(null);
+    try {
+      const res = await fetch('/api/auth/seat-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: targetRole, trialDirect: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to switch trial seat.');
+      handleAuthenticated(data.token, data.profile, targetRole);
+      await fetchSprintState(data.token, targetRole, false);
+      setToastMessage(
+        `Switched view to ${
+          targetRole === 'mentor' ? 'Titanium Nikhil (Mentor Review)' : 'Janvi (Student Dashboard)'
+        }`
+      );
+    } catch (err: any) {
+      setToastMessage(`Error switching seat: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleLogout = async () => {
     try {
       sessionStorage.removeItem(SESSION_TOKEN_KEY);
       sessionStorage.removeItem(SESSION_ROLE_KEY);
@@ -245,54 +290,19 @@ export default function App() {
   };
 
   const safeChangeStudentNav = (next: StudentNavKey) => {
-    if (
-      reflectionDirty &&
-      studentNav === 'daily_reflection' &&
-      next !== 'daily_reflection'
-    ) {
-      if (
-        !window.confirm(
-          'You have unsaved changes in your Daily Reflection. Leave without saving?'
-        )
-      ) {
-        return;
-      }
-      setReflectionDirty(false);
-    }
+    setReflectionDirty(false);
     setStudentNav(next);
     setMobileMenuOpen(false);
   };
 
   const safeChangeMentorNav = (next: MentorNavKey) => {
-    if (
-      reflectionDirty &&
-      mentorNav === 'daily_reports' &&
-      next !== 'daily_reports'
-    ) {
-      if (
-        !window.confirm(
-          'You have unsaved changes in the report form. Leave without saving?'
-        )
-      ) {
-        return;
-      }
-      setReflectionDirty(false);
-    }
+    setReflectionDirty(false);
     setMentorNav(next);
     setMobileMenuOpen(false);
   };
 
   const safeSelectDate = (date: string) => {
-    if (reflectionDirty && date !== selectedDate) {
-      if (
-        !window.confirm(
-          'You have unsaved reflection text for the current day. Switch day without saving?'
-        )
-      ) {
-        return;
-      }
-      setReflectionDirty(false);
-    }
+    setReflectionDirty(false);
     setSelectedDate(date);
   };
 
@@ -626,6 +636,21 @@ export default function App() {
               <span className="hidden sm:inline">
                 {syncing ? 'Syncing...' : 'Sync'}
               </span>
+            </button>
+
+            {/* Quick Seat Switcher Button */}
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => switchSeatRole(isMentor ? 'student' : 'mentor')}
+              className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-colors ${
+                darkMode
+                  ? 'border-indigo-700 bg-indigo-950/50 text-indigo-300 hover:bg-indigo-900/60'
+                  : 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+              }`}
+              title={`Switch active view to ${isMentor ? 'Janvi (Student)' : 'Titanium Nikhil (Mentor)'}`}
+            >
+              <span>{isMentor ? '👤 Switch to Janvi' : '🛡️ Switch to Mentor'}</span>
             </button>
 
             {!isMentor ? (

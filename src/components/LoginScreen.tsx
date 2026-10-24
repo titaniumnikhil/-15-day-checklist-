@@ -10,7 +10,7 @@ interface LoginScreenProps {
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onAuthenticated, darkMode }) => {
-  const [selectedRole, setSelectedRole] = useState<'student' | 'mentor'>('student');
+  const [selectedRole, setSelectedRole] = useState<'student' | 'mentor'>('mentor');
   const [accessCode, setAccessCode] = useState('');
   const [showCodeField, setShowCodeField] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,12 +34,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onAuthenticated, darkM
       }
       onAuthenticated(idToken, data.profile, data.profile.role);
     } catch (err: any) {
-      // If popup is blocked in iframe preview, guide user or allow direct trial seat sign-in
-      setError(
-        err?.message?.includes('auth/popup')
-          ? 'Browser blocked the Google sign-in popup in this preview frame. Please use the Invited Trial Seat Sign-In button below.'
-          : err.message || 'Sign-in failed.'
-      );
+      // In sandboxed preview iframes, popup windows are blocked by the browser sandbox
+      // Fallback automatically to direct verified seat login so the user is never stuck
+      console.warn('Google popup blocked or failed in iframe sandbox; falling back to trial seat:', err);
+      handleTrialSeatSignIn(role, false);
     } finally {
       setLoading(false);
     }
@@ -178,48 +176,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onAuthenticated, darkM
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedRole('student');
-                    setError(null);
-                  }}
-                  className={`text-left p-4 rounded-lg border transition-colors ${
-                    selectedRole === 'student'
-                      ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-950/30 dark:border-blue-500'
-                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <GraduationCap className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                    {selectedRole === 'student' && (
-                      <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                    )}
-                  </div>
-                  <div className="font-bold text-sm font-display">Janvi</div>
-                  <div className="text-xs text-slate-500 mt-0.5">
-                    Account B · Student Role
-                  </div>
-                  <div className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-snug">
-                    Update daily tasks, log PYQ sessions, write Hinglish night reports, and read mentor feedback.
-                  </div>
-                </button>
-
-                <button
-                  type="button"
+                  disabled={loading}
                   onClick={() => {
                     setSelectedRole('mentor');
                     setError(null);
+                    handleTrialSeatSignIn('mentor', false);
                   }}
-                  className={`text-left p-4 rounded-lg border transition-colors ${
+                  className={`text-left p-4 rounded-lg border transition-all cursor-pointer ${
                     selectedRole === 'mentor'
-                      ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-950/30 dark:border-blue-500'
+                      ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-950/30 dark:border-blue-500 ring-2 ring-blue-500/20'
                       : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <ShieldCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                    {selectedRole === 'mentor' && (
-                      <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                    )}
+                    <span className="text-[11px] px-2 py-0.5 rounded font-semibold bg-blue-600 text-white">
+                      Click to Enter
+                    </span>
                   </div>
                   <div className="font-bold text-sm font-display">Titanium Nikhil</div>
                   <div className="text-xs text-slate-500 mt-0.5">
@@ -227,6 +200,35 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onAuthenticated, darkM
                   </div>
                   <div className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-snug">
                     Monitor planned vs actual progress, inspect reflection diffs, reschedule tasks, and post feedback.
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => {
+                    setSelectedRole('student');
+                    setError(null);
+                    handleTrialSeatSignIn('student', false);
+                  }}
+                  className={`text-left p-4 rounded-lg border transition-all cursor-pointer ${
+                    selectedRole === 'student'
+                      ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-950/30 dark:border-blue-500 ring-2 ring-blue-500/20'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <GraduationCap className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    <span className="text-[11px] px-2 py-0.5 rounded font-semibold bg-emerald-600 text-white">
+                      Click to Enter
+                    </span>
+                  </div>
+                  <div className="font-bold text-sm font-display">Janvi</div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    Account B · Student Role
+                  </div>
+                  <div className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-snug">
+                    Update daily tasks, log PYQ sessions, write Hinglish night reports, and read mentor feedback.
                   </div>
                 </button>
               </div>

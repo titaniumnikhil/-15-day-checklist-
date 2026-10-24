@@ -453,14 +453,6 @@ export const ReflectionWorkspace: React.FC<ReflectionWorkspaceProps> = ({
             value={selectedDate}
             onChange={(e) => {
               const targetDate = e.target.value;
-              if (
-                isDirty &&
-                !window.confirm(
-                  'You have unsaved reflection text on this day. Switch day and discard unsaved changes?'
-                )
-              ) {
-                return;
-              }
               onSelectDate(targetDate);
             }}
             className={`px-3 py-2 rounded-lg border text-xs font-medium font-mono ${
