@@ -1,0 +1,6 @@
+{
+  "name": "Titanium Study Tracker — Janvi's 15-Day JEE Sprint",
+  "description": "A private two-user JEE Main preparation accountability and sprint management system for Janvi (Student) and Titanium Nikhil (Mentor).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
